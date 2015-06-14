@@ -5,6 +5,22 @@ from bs4 import BeautifulSoup
 
 f = open('SIGIR2014', 'w')
 
+papers = 83
+papers_list = {}
+
+def addPaper(key,value):
+    if  papers_list.has_key(key):
+        return True
+    else:
+        papers_list[key] = value
+        return False
+
+def findFlag(flag):
+    if  flag is 1 or flag is 35 or flag is 55:
+        return True
+    else:
+        return False
+
 def trade_spider(max_pages):
     page = 1
     while page <= max_pages:
@@ -14,34 +30,49 @@ def trade_spider(max_pages):
         soup = BeautifulSoup(plain_text)
         count = 0
         num_of_paper = 0 
-        for link in soup.find_all('a'):
-            href = link.get('href')
-            if  href is None or 'citation.cfm?id' not in href:
-                continue
+        for link in soup.find_all('table',{'class':'text12'}):
             count += 1
-            if count < 5:
-                continue
-            title = '<title>' + link.string + '</title>\n'
-            print(count)
-            print(title)
-            f.write(title.encode('utf8'))
-            print(href)
-            item_url = "http://dl.acm.org/" + href + "&preflayout=flat"
-            findRef(item_url)
-            num_of_paper += 1
-            if num_of_paper > 4: break
-            print('sleep')
-            time.sleep(40)
-            print('wakeup')
-            if count is 88:
-                break
+            if count < 2: continue
+            soup1 = BeautifulSoup(str(link))
+            flag = 0
+            for link1 in soup1.find_all('a'):
+                href = link1.get('href')
+                if  href is None or 'citation.cfm?id' not in href:
+                    continue
+                flag += 1
+                if findFlag(flag):
+                    continue
+                p_id = href[16:23].split('&')[0]
+                if  addPaper(p_id,href):
+                    continue
+                s = '<id>' + p_id + '</id>\n'
+                f.write(s.encode('utf8'))
+                print(flag)
+                #print(href)
+                item_url = "http://dl.acm.org/" + href + "&preflayout=flat"
+                findRef(item_url,0)
+                num_of_paper += 1
+                if num_of_paper == 2:
+                    break
         page += 1
 
-def findRef(url):
+def findRef(url,rec):
     source_code = requests.get(url)
     plain_text = source_code.text
     soup = BeautifulSoup(plain_text)
+    title(soup)
+    other(soup,rec)
 
+
+def title(soup):
+    for link in soup.find_all('strong'):
+        s = '<title>' + link.text + '</title>\n'
+        print(s)
+        f.write(s)
+        break
+
+
+def other(soup,rec):
     for table in soup.findAll('div',{'id': 'divmain'}):
         line = str(table)
         soup1 = BeautifulSoup(line)
@@ -56,54 +87,60 @@ def findRef(url):
             break
         break
 
-    count = 0
+    papers_name = {}
     num_of_ref = 0
     num_of_cit = 0
+    count = 0
     for link in soup.find_all('div', {'class':'flatbody'}):
         count += 1
         if count is 1:
             soup1 = BeautifulSoup(str(link))
-            for abstrack in soup1.find_all('p'):
-                s = '<abstract>' + abstrack.string + '</abstract>\n'
+            for abstract in soup1.findAll('div',{'style':'display:inline'}):
+                s = '<abstract>' + abstract.text + '</abstract>\n'
                 print(s)
                 f.write(s.encode('utf8'))
                 break
         if count is 3 or count is 4:
             soup1 = BeautifulSoup(str(link))
-            for item_ref in soup1.findAll('tr',{'valign':'top'}):
-                soup2 = BeautifulSoup(str(item_ref))
+            for item_ref in soup1.findAll('a'):
                 count1 = 0
-                for ref in soup2.findAll('div'):
-                    count1 += 1
-                    if count1 is 1 and count is 3: 
-                        continue
-                    if ref.string is None:
-                        soup3 = BeautifulSoup(str(ref))
-                        for aref in soup3.findAll('a'):
-                            s = aref.text
-                            break
-                        if count is 3:
-                            s = s[11:len(s)-1]
-                        else:
-                            s = s[8:len(s)-1]
-                    else:
-                        s = ref.text
-                        s = s[12:len(s)-20]
-
-                    if count is 3:
-                        num_of_ref += 1
-                        s = '<ref>' + s + '</ref>\n'
-                    else:
-                        num_of_cit += 1
-                        s = '<citeby>' + s[0:len(s)-7] + '</citeby>\n'
-                    print(s)
-                    f.write(s.encode('utf8'))
-                    break
+                count1 += 1
+                flag = False
+                href = item_ref.get('href')
+                if  href is None or 'citation.cfm?id' not in href:
+                    continue
+                p_id = href[16:23].split('&')[0]
+                papers_name[str(p_id)] = str(href)
+                #print(papers_name[str(p_id)])
+                if count is 3:
+                    num_of_ref += 1
+                    s = '<ref>' + p_id + '</ref>\n'
+                else:
+                    num_of_cit += 1
+                    s = '<citeby>' + p_id + '</citeby>\n'
+                #print(s)
+                f.write(s.encode('utf8'))
         if count is 4:
             break
     print(num_of_ref)
     print(num_of_cit)
+
+    if  rec > 0:
+        for key in papers_name:
+            url = 'http://dl.acm.org/' + papers_name[key] + '&preflayout=flat'
+            p_id = '<id>' + key + '</id>\n'
+            print(p_id)
+            if  addPaper(p_id,papers_name[key]):
+                continue
+            f.write(p_id)
+            findRef(url,rec-1)
+            time.sleep(40)
+        papers_name.clear()
+
     f.write(u'\n\n\n\n\n')
 
 
 trade_spider(1)
+print(papers_list)
+
+f.close()
