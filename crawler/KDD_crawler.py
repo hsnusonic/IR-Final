@@ -2,6 +2,7 @@ import requests
 import re
 from collections import namedtuple
 import time, random
+import sys, getopt
 
 from bs4 import BeautifulSoup
 
@@ -67,10 +68,9 @@ def format_paper(paper):
     inform += "<citeby>{}</citeby>".format(cite) + '\n'
   return inform
 
-def get_ids(url, filename):
+def get_ids(url, begin, end, filename):
   res = requests.get(url)
-  ids_block = str_between(res.text, "Research session 1: location-based services",\
-      "Industry &#38; government invited talks")
+  ids_block = str_between(res.text, begin, end)
   pattern = re.compile(ur'citation\.cfm\?id=(\d*?)&')
   ids = re.findall(pattern, ids_block)
   with open(filename, 'w') as f:
@@ -78,25 +78,42 @@ def get_ids(url, filename):
   return ids
 
 if __name__ == "__main__":
-  #url = "http://dl.acm.org/citation.cfm?id=2623628&preflayout=flat"
-  #ids = get_ids(url, "KDD2014_ids")
-  with open("KDD2014_ids", 'r') as f:
+  # figure input option
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "i:o:")
+  except getopt.GetoptError as err:
+    print str(err)
+    sys.exit(2)
+
+  for opt, arg in opts:
+    if opt == "-i":
+      InputFile = arg
+    elif opt == "-o":
+      OutputFile = arg
+
+  with open(InputFile, 'r') as f:
     ids = [_id.strip() for _id in list(f)]
 
   # data structure to store paper information
   Paper = namedtuple("Paper", ['id', 'title', 'authors', 'abstract', 'refs', 'cites'])
 
-  with open("fail_list", 'w') as f:
-    papers = []
-    for i in xrange(len(ids)):
-      try:
-        paper = Paper._make(get_data(ids[i]))
-        papers.append(format_paper(paper))
-      except:
-        f.write(ids[i] + '\n')
-        time.sleep(0.5 + random.random())
+  fails = []
+  papers = []
+  for i in xrange(len(ids)):
+    try:
+      paper = Paper._make(get_data(ids[i]))
+      papers.append(format_paper(paper))
+    except:
+      fails.append(ids[i])
+      time.sleep(0.5 + random.random())
 
-  with open("KDD2014", 'w') as f:
+  with open(OutputFile, 'w') as f:
     f.write(str(len(papers))+'\n')
     for paper in papers:
       f.write(paper)
+
+  if len(fails) != 0:
+    FailFile = OutputFile.split('.')[0]
+    with open(FailFile, 'w'):
+      for _id in fails:
+        f.write(str(_id) + '\n')
