@@ -55,6 +55,13 @@ def get_data(_id):
   cites = find_citeby(res.text)
   return _id, title, authors, abstract_str, refs, cites
 
+def update_set(paper, id_set):
+  for ref in paper.refs:
+    id_set.add(ref)
+  for cite in paper.cites:
+    id_set.add(cite)
+  return None
+
 def format_paper(paper):
   inform = ""
   inform += "<id>{}</id>".format(paper.id) + '\n'
@@ -97,14 +104,27 @@ if __name__ == "__main__":
   # data structure to store paper information
   Paper = namedtuple("Paper", ['id', 'title', 'authors', 'abstract', 'refs', 'cites'])
 
+  id_set = set(ids)
   fails = []
   papers = []
-  for i in xrange(len(ids)):
+  for _id in ids:
     try:
-      paper = Paper._make(get_data(ids[i]))
+      paper = Paper._make(get_data(_id))
+      papers.append(format_paper(paper))
+      update_set(paper, id_set)
+    except:
+      fails.append(_id)
+      time.sleep(0.5 + random.random())
+
+  # deeper to next layer
+  origin_set = set(ids)
+  final_set = id_set - origin_set
+  for _id in final_set:
+    try:
+      paper = Paper._make(get_data(_id))
       papers.append(format_paper(paper))
     except:
-      fails.append(ids[i])
+      fails.append(_id)
       time.sleep(0.5 + random.random())
 
   with open(OutputFile, 'w') as f:
@@ -113,7 +133,7 @@ if __name__ == "__main__":
       f.write(paper)
 
   if len(fails) != 0:
-    FailFile = OutputFile.split('.')[0]
-    with open(FailFile, 'w'):
+    FailFile = OutputFile.split('.')[0] + "_fail"
+    with open(FailFile, 'w') as f:
       for _id in fails:
         f.write(str(_id) + '\n')
