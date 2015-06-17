@@ -2,6 +2,6 @@
 
 Usage:
 
-*python KDD_craeler.py -i input -o output [-r]*
+*python KDD_crawler.py -i input -o output [-r]*
 
 -r, recursive mode
