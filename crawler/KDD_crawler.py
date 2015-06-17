@@ -94,16 +94,19 @@ def get_ids(url, begin, end, filename):
 if __name__ == "__main__":
   # figure input option
   try:
-    opts, args = getopt.getopt(sys.argv[1:], "i:o:")
+    opts, args = getopt.getopt(sys.argv[1:], "i:o:r")
   except getopt.GetoptError as err:
     print str(err)
     sys.exit(2)
 
+  IsRecursive = False
   for opt, arg in opts:
     if opt == "-i":
       InputFile = arg
     elif opt == "-o":
       OutputFile = arg
+    elif opt == "-r":
+      IsRecursive = True
 
   with open(InputFile, 'r') as f:
     ids = [_id.strip() for _id in list(f)]
@@ -124,15 +127,16 @@ if __name__ == "__main__":
       #time.sleep(0.5 + random.random())
 
   # deeper to next layer
-  #origin_set = set(ids)
-  #final_set = id_set - origin_set
-  #for _id in final_set:
-    #try:
-      #paper = Paper._make(get_data(_id))
-      #papers.append(format_paper(paper))
-    #except:
-      #fails.append(_id)
-      #time.sleep(0.5 + random.random())
+  if IsRecursive:
+    origin_set = set(ids)
+    final_set = id_set - origin_set
+    for _id in final_set:
+      try:
+        paper = Paper._make(get_data(_id))
+        papers.append(format_paper(paper))
+      except:
+        fails.append(_id)
+        time.sleep(0.5 + random.random())
 
   with open(OutputFile, 'w') as f:
     f.write(str(len(papers))+'\n')
