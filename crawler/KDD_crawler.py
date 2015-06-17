@@ -16,8 +16,12 @@ def nameorder(name):
 
 def find_author(soup):
   meta_author = soup.find("meta", {"name": "citation_authors"})
-  authors = meta_author.attrs["content"].split("; ")
-  return [nameorder(author) for author in authors]
+  # consider author not exist
+  if meta_author:
+    authors = meta_author.attrs["content"].split("; ")
+    return [nameorder(author) for author in authors]
+  else:
+    return []
 
 def find_title(soup):
   return soup.find("strong").contents[0]
@@ -27,10 +31,11 @@ def str_between(s, first, last):
   end = s.index(last, start)
   return s[start:end]
 
-def find_abstract(s):
-  abstract = str_between(s, "ABSTRACT", "AUTHORS")
-  abstract = str_between(abstract, "<p>", "</p>")
-  return abstract
+def find_abstract(_id):
+  param = {"id":_id}
+  res = requests.get("http://dl.acm.org/tab_abstract.cfm?", params=param)
+  soup = BeautifulSoup(res.text)
+  return soup.get_text().strip()
 
 def find_references(s):
   ref_block = str_between(s, "REFERENCES", "CITED BY")
@@ -45,12 +50,14 @@ def find_citeby(s):
   return cites
 
 def get_data(_id):
-  param = {"preflayout":"flat", "id":_id}
+  param = {"preflayout": "flat", "id":_id}
   res = requests.get("http://dl.acm.org/citation.cfm", params = param)
   soup = BeautifulSoup(res.text, "html.parser")
   title = find_title(soup)
   authors = find_author(soup)
-  abstract_str = find_abstract(res.text)
+  # sleep
+  time.sleep(1+random.random())
+  abstract_str = find_abstract(_id)
   refs = find_references(res.text)
   cites = find_citeby(res.text)
   return _id, title, authors, abstract_str, refs, cites
@@ -68,7 +75,7 @@ def format_paper(paper):
   inform += "<title>{}</title>".format(paper.title.encode('utf-8')) + '\n'
   for author in paper.authors:
     inform += "<author>{}</author>".format(author.encode('utf-8')) + '\n'
-  inform += "<abstract>{}</abstract>".format(paper.abstract) + '\n'
+  inform += "<abstract>{}</abstract>".format(paper.abstract.encode('utf-8')) + '\n'
   for ref in paper.refs:
     inform += "<ref>{}</ref>".format(ref) + '\n'
   for cite in paper.cites:
@@ -108,24 +115,24 @@ if __name__ == "__main__":
   fails = []
   papers = []
   for _id in ids:
-    try:
+    #try:
       paper = Paper._make(get_data(_id))
       papers.append(format_paper(paper))
       update_set(paper, id_set)
-    except:
-      fails.append(_id)
-      time.sleep(0.5 + random.random())
+    #except:
+      #fails.append(_id)
+      #time.sleep(0.5 + random.random())
 
   # deeper to next layer
-  origin_set = set(ids)
-  final_set = id_set - origin_set
-  for _id in final_set:
-    try:
-      paper = Paper._make(get_data(_id))
-      papers.append(format_paper(paper))
-    except:
-      fails.append(_id)
-      time.sleep(0.5 + random.random())
+  #origin_set = set(ids)
+  #final_set = id_set - origin_set
+  #for _id in final_set:
+    #try:
+      #paper = Paper._make(get_data(_id))
+      #papers.append(format_paper(paper))
+    #except:
+      #fails.append(_id)
+      #time.sleep(0.5 + random.random())
 
   with open(OutputFile, 'w') as f:
     f.write(str(len(papers))+'\n')
